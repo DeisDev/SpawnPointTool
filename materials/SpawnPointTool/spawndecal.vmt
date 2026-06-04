@@ -1,0 +1,9 @@
+"UnlitGeneric"
+{
+	"$basetexture" "SpawnPointTool/spawndecal"
+	"$alphatest" 1
+	"$alphatestreference" 0.1
+	"$vertexalpha" 1
+	"$vertexcolor" 1
+	"$nocull" 1
+}
