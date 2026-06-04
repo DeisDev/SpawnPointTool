@@ -231,6 +231,7 @@ local function rebuildMarkersForKey(key)
         markers[i] = {
             pos = spawns[i].pos,
             normal = spawns[i].normal,
+            yaw = spawns[i].yaw,
             index = i
         }
     end
@@ -257,6 +258,7 @@ local function writeMarker(marker, own, ownerName)
     net.WriteVector(marker.pos)
     net.WriteVector(marker.normal)
     net.WriteBool(own)
+    net.WriteFloat(marker.yaw or 0)
     net.WriteUInt(math.Clamp(marker.index or 1, 1, 65535), 16)
     net.WriteString(ownerName or "Player")
 end
@@ -303,6 +305,10 @@ local function isUsingSpawnTool(ply)
     return ply:GetInfo("gmod_toolmode") == "spawnpoint"
 end
 
+local function wantsMarkers(ply)
+    return isUsingSpawnTool(ply) or ply:GetInfoNum("spawnpoint_always_show", 0) == 1
+end
+
 local function broadcastMarkers(toPly, changedKey)
     if IsValid(toPly) then
         writeMarkersForPlayer(toPly)
@@ -311,7 +317,7 @@ local function broadcastMarkers(toPly, changedKey)
 
     if not showAllMarkers:GetBool() and changedKey then
         for _, ply in ipairs(player.GetHumans()) do
-            if playerKey(ply) == changedKey and isUsingSpawnTool(ply) then
+            if playerKey(ply) == changedKey and wantsMarkers(ply) then
                 writeMarkersForPlayer(ply)
                 return
             end
@@ -321,7 +327,7 @@ local function broadcastMarkers(toPly, changedKey)
     end
 
     for _, target in ipairs(player.GetHumans()) do
-        if isUsingSpawnTool(target) then
+        if wantsMarkers(target) then
             writeMarkersForPlayer(target)
         end
     end
@@ -543,7 +549,7 @@ net.Receive("spt_clear_all_request", function(len, ply)
 end)
 
 net.Receive("spt_request_markers", function(len, ply)
-    if not isUsingSpawnTool(ply) then return end
+    if not wantsMarkers(ply) then return end
     writeMarkersForPlayer(ply)
 end)
 

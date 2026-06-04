@@ -14,6 +14,7 @@ if CLIENT then
     language.Add("tool.spawnpoint.0", "Left-click: add respawn point. Right-click: remove aimed respawn point. Reload: clear your map respawn points.")
     CreateClientConVar("spawnpoint_persist", "0", true, true, "Persist your respawn points across sessions")
     CreateClientConVar("spawnpoint_hull_check", "1", true, true, "Check player hull before placing respawn points")
+    CreateClientConVar("spawnpoint_always_show", "0", true, true, "Always show known respawn point markers")
 end
 
 local function getHitNormal(trace)
@@ -105,6 +106,7 @@ end
 
 function TOOL.BuildCPanel(panel)
     panel:Help("Left-click adds a respawn point. Right-click removes the aimed respawn point. Reload clears your respawn points on this map. Respawns choose randomly from your placed points.")
+    panel:Help("Blue preview: valid placement. Red preview: blocked by the player hull check.")
 
     local persistToggle = panel:CheckBox("Persist across sessions", "spawnpoint_persist")
     persistToggle.OnChange = function(_, checked)
@@ -112,6 +114,7 @@ function TOOL.BuildCPanel(panel)
     end
 
     panel:CheckBox("Check player hull before placement", "spawnpoint_hull_check")
+    panel:CheckBox("Always show known markers", "spawnpoint_always_show")
 
     local ply = LocalPlayer()
     if IsValid(ply) and ply:IsAdmin() then
@@ -173,5 +176,18 @@ function TOOL.BuildCPanel(panel)
             end,
             "Cancel"
         )
+    end
+
+    panel:Help("About")
+    panel:Help("Respawn Point Tool v2.0.0")
+
+    local workshopBtn = panel:Button("Open Steam Workshop Page")
+    workshopBtn.DoClick = function()
+        gui.OpenURL("https://steamcommunity.com/sharedfiles/filedetails/?id=3596484181")
+    end
+
+    local githubBtn = panel:Button("Open GitHub Repository")
+    githubBtn.DoClick = function()
+        gui.OpenURL("https://github.com/DeisDev/SpawnPointTool")
     end
 end

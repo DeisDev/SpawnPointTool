@@ -1,5 +1,7 @@
 # Respawn Point Tool
 
+Version: `v2.0.0`
+
 A Garry's Mod Toolgun addon for creating personal respawn points. Players can place multiple respawn points on a map, and respawns choose one of their saved points at random.
 
 ## Install
@@ -25,16 +27,19 @@ Expected layout:
 - Left-click a non-sky surface to add a respawn point.
 - Right-click near one of your spawn markers to remove it.
 - Reload clears your respawn points on the current map.
+- Respawn points preserve the direction you were facing when placed.
 - The blue preview shows where the next marker will be placed.
 - A red preview means the player hull check thinks the spot is blocked.
 - Other players' markers appear with a blue tint when shared markers are enabled.
 - Nearby markers show floating labels with owner name and spawn index.
 - The optional danger check prefers respawn points without nearby NPCs or NextBots.
+- The HUD shows your current respawn point count while the tool is held.
 
 ## Tool Options
 
 - `Persist across sessions` saves your current map respawn points immediately and keeps future changes saved under `spawnpointtool/<map>/<steamid>.json`.
 - `Check player hull before placement` rejects cramped respawn points.
+- `Always show known markers` keeps synced markers visible without holding the tool.
 - Admins can configure marker visibility, max respawn points per player, remove radius, spawn surface offset, and danger checking.
 - Admins can reset server settings to their defaults from the tool menu.
 - `Delete all saved respawn points...` removes your saved points across every map.
@@ -54,3 +59,8 @@ The placed marker uses an opaque alpha-tested material. The live placement previ
 Marker sharing is off by default for privacy and server performance. Clients request marker data when the Respawn Point Tool is selected.
 
 The save format is `{ "spawns": [...] }`; older single-spawn save files are ignored.
+
+## Links
+
+- Steam Workshop: https://steamcommunity.com/sharedfiles/filedetails/?id=3596484181
+- GitHub: https://github.com/DeisDev/SpawnPointTool
