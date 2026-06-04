@@ -8,7 +8,7 @@ A Garry's Mod Toolgun addon for creating personal respawn points. Players can pl
 
 Subscribe on the Steam Workshop:
 
-https://steamcommunity.com/sharedfiles/filedetails/?id=3596484181
+https://steamcommunity.com/sharedfiles/filedetails/?id=3738661916
 
 Restart Garry's Mod or let the Workshop download finish, then find it in the Toolgun menu under `Respawn Point Tool`.
 
@@ -62,5 +62,5 @@ The save format is `{ "spawns": [...] }`; older single-spawn save files are igno
 
 ## Links
 
-- Steam Workshop: https://steamcommunity.com/sharedfiles/filedetails/?id=3596484181
+- Steam Workshop: https://steamcommunity.com/sharedfiles/filedetails/?id=3738661916
 - GitHub: https://github.com/DeisDev/SpawnPointTool

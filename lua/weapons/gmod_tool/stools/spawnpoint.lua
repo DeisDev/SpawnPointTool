@@ -183,7 +183,7 @@ function TOOL.BuildCPanel(panel)
 
     local workshopBtn = panel:Button("Open Steam Workshop Page")
     workshopBtn.DoClick = function()
-        gui.OpenURL("https://steamcommunity.com/sharedfiles/filedetails/?id=3596484181")
+        gui.OpenURL("https://steamcommunity.com/sharedfiles/filedetails/?id=3738661916")
     end
 
     local githubBtn = panel:Button("Open GitHub Repository")
