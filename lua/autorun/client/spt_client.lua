@@ -2,7 +2,7 @@ if SERVER then return end
 
 hook.Add("AddToolMenuCategories", "spt_add_category", function()
     if not spawnmenu then return end
-    spawnmenu.AddToolCategory("Main", "RespawnTool", "Respawn Point Tool")
+    spawnmenu.AddToolCategory("Main", "SpawnPointTool", "Spawn Point Tool")
 end)
 
 local HULL_MINS = Vector(-16, -16, 0)
@@ -265,7 +265,7 @@ hook.Add("HUDPaint", "spt_draw_hud_count", function()
     end
 
     local maxCount = getMaxSpawns()
-    local title = "Respawn Point Tool"
+    local title = "Spawn Point Tool"
     local text = string.format("Respawn points: %d/%d", ownCount, maxCount)
     local x = ScrW() * 0.5
     local y = ScrH() - 115

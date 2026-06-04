@@ -1,6 +1,6 @@
-# Respawn Point Tool
+# Spawn Point Tool
 
-Version: `v2.0.0`
+Version: `v.1.0.1`
 
 A Garry's Mod Toolgun addon for creating personal respawn points. Players can place multiple respawn points on a map, and respawns choose one of their saved points at random.
 
@@ -10,7 +10,7 @@ Subscribe on the Steam Workshop:
 
 https://steamcommunity.com/sharedfiles/filedetails/?id=3738661916
 
-Restart Garry's Mod or let the Workshop download finish, then find it in the Toolgun menu under `Respawn Point Tool`.
+Restart Garry's Mod or let the Workshop download finish, then find it in the Toolgun menu under `Spawn Point Tool`.
 
 For local development, this addon folder can also be placed at `garrysmod/addons/SpawnPointTool`.
 
@@ -56,7 +56,7 @@ Expected layout:
 
 The placed marker uses an opaque alpha-tested material. The live placement preview is drawn separately as a translucent blue overlay.
 
-Marker sharing is off by default for privacy and server performance. Clients request marker data when the Respawn Point Tool is selected.
+Marker sharing is off by default for privacy and server performance. Clients request marker data when the Spawn Point Tool is selected.
 
 The save format is `{ "spawns": [...] }`; older single-spawn save files are ignored.
 

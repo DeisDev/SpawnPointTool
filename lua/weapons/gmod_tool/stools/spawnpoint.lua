@@ -3,13 +3,13 @@ if SERVER then
 end
 
 TOOL.Tab = "Main"
-TOOL.Category = "RespawnTool"
+TOOL.Category = "SpawnPointTool"
 TOOL.Name = "#tool.spawnpoint.name"
 TOOL.Command = nil
 TOOL.ConfigName = ""
 
 if CLIENT then
-    language.Add("tool.spawnpoint.name", "Respawn Point Tool")
+    language.Add("tool.spawnpoint.name", "Spawn Point Tool")
     language.Add("tool.spawnpoint.desc", "Create personal respawn points.")
     language.Add("tool.spawnpoint.0", "Left-click: add respawn point. Right-click: remove aimed respawn point. Reload: clear your map respawn points.")
     CreateClientConVar("spawnpoint_persist", "0", true, true, "Persist your respawn points across sessions")
@@ -113,8 +113,20 @@ function TOOL.BuildCPanel(panel)
         sendPersistenceMode(checked)
     end
 
-    panel:CheckBox("Check player hull before placement", "spawnpoint_hull_check")
-    panel:CheckBox("Always show known markers", "spawnpoint_always_show")
+    local hullToggle = panel:CheckBox("Check player hull before placement", "spawnpoint_hull_check")
+    local alwaysShowToggle = panel:CheckBox("Always show known markers", "spawnpoint_always_show")
+
+    local resetClientBtn = panel:Button("Reset client settings")
+    resetClientBtn:SetTooltip("Restores persistence, hull check, and marker visibility settings to defaults.")
+    resetClientBtn.DoClick = function()
+        persistToggle:SetValue(0)
+        hullToggle:SetValue(1)
+        alwaysShowToggle:SetValue(0)
+
+        sendPersistenceMode(false)
+        RunConsoleCommand("spawnpoint_hull_check", "1")
+        RunConsoleCommand("spawnpoint_always_show", "0")
+    end
 
     local ply = LocalPlayer()
     if IsValid(ply) and ply:IsAdmin() then
@@ -178,16 +190,6 @@ function TOOL.BuildCPanel(panel)
         )
     end
 
-    panel:Help("About")
-    panel:Help("Respawn Point Tool v2.0.0")
-
-    local workshopBtn = panel:Button("Open Steam Workshop Page")
-    workshopBtn.DoClick = function()
-        gui.OpenURL("https://steamcommunity.com/sharedfiles/filedetails/?id=3738661916")
-    end
-
-    local githubBtn = panel:Button("Open GitHub Repository")
-    githubBtn.DoClick = function()
-        gui.OpenURL("https://github.com/DeisDev/SpawnPointTool")
-    end
+    panel:Help("Spawn Point Tool v.1.0.1 by cat sniffer")
+    panel:Help("If you like this tool, please consider rating it!")
 end
