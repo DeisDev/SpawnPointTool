@@ -1,7 +1,5 @@
 # Spawn Point Tool
 
-Version: `v.1.0.1`
-
 A Garry's Mod Toolgun addon for creating personal respawn points. Players can place multiple respawn points on a map, and respawns choose one of their saved points at random.
 
 ## Install
@@ -17,6 +15,7 @@ For local development, this addon folder can also be placed at `garrysmod/addons
 Expected layout:
 
 - `lua/autorun/client/spt_client.lua`
+- `lua/autorun/spt_core.lua`
 - `lua/autorun/server/spt_server.lua`
 - `lua/weapons/gmod_tool/stools/spawnpoint.lua`
 - `materials/SpawnPointTool/spawndecal.vmt`
@@ -39,20 +38,30 @@ Expected layout:
 
 - `Persist across sessions` saves your current map respawn points immediately and keeps future changes saved under `spawnpointtool/<map>/<steamid>.json`.
 - `Check player hull before placement` rejects cramped respawn points.
-- `Always show known markers` keeps synced markers visible without holding the tool.
-- Admins can configure marker visibility, max respawn points per player, remove radius, spawn surface offset, and danger checking.
+- `Use my respawn points` lets players temporarily return to normal map spawns without deleting their points.
+- `Always show synced markers` keeps synced markers visible without holding the tool.
+- Admins can configure custom respawns, marker visibility, max respawn points per player, remove radius, spawn surface offset, danger checking, and respawn-time hull checks.
 - Admins can reset server settings to their defaults from the tool menu.
 - `Delete all saved respawn points...` removes your saved points across every map.
 
 ## ConVars
 
-- `spt_show_all_markers 0`: users holding the tool can see only their own markers.
-- `spt_show_all_markers 1`: users holding the tool can see all spawn markers.
+- `spawnpoint_enabled 1`: use your personal respawn points.
+- `spt_enabled 1`: enable custom respawns server-wide.
+- `spt_marker_visibility 0`: users holding the tool can see only their own markers.
+- `spt_marker_visibility 1`: admins can see all spawn markers.
+- `spt_marker_visibility 2`: everyone can see all spawn markers.
 - `spt_max_spawns 32`: maximum respawn points each player can place.
 - `spt_delete_radius 64`: distance used when right-click removing an aimed respawn point.
 - `spt_spawn_offset 8`: distance players are moved away from the saved surface when respawning.
 - `spt_danger_check 1`: prefer respawn points without nearby NPCs or NextBots.
-- `spt_danger_radius 512`: radius used when checking whether a respawn point is dangerous.
+- `spt_danger_radius 256`: radius used when checking whether a respawn point is dangerous.
+- `spt_respawn_hull_check 0`: check whether saved points are blocked before respawning.
+
+## Admin Commands
+
+- `spt_list_counts`: list loaded respawn point counts.
+- `spt_clear_player <name|steamid>`: clear a player's current-map respawn points.
 
 The placed marker uses an opaque alpha-tested material. The live placement preview is drawn separately as a translucent blue overlay.
 

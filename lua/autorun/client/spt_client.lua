@@ -1,5 +1,7 @@
 if SERVER then return end
 
+include("autorun/spt_core.lua")
+
 hook.Add("AddToolMenuCategories", "spt_add_category", function()
     if not spawnmenu then return end
     spawnmenu.AddToolCategory("Main", "SpawnPointTool", "Spawn Point Tool")

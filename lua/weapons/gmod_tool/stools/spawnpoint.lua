@@ -2,6 +2,8 @@ if SERVER then
     AddCSLuaFile()
 end
 
+include("autorun/spt_core.lua")
+
 TOOL.Tab = "Main"
 TOOL.Category = "SpawnPointTool"
 TOOL.Name = "#tool.spawnpoint.name"
@@ -12,9 +14,10 @@ if CLIENT then
     language.Add("tool.spawnpoint.name", "Spawn Point Tool")
     language.Add("tool.spawnpoint.desc", "Create personal respawn points.")
     language.Add("tool.spawnpoint.0", "Left-click: add respawn point. Right-click: remove aimed respawn point. Reload: clear your map respawn points.")
+    CreateClientConVar("spawnpoint_enabled", "1", true, true, "Use your Spawn Point Tool respawn points")
     CreateClientConVar("spawnpoint_persist", "0", true, true, "Persist your respawn points across sessions")
     CreateClientConVar("spawnpoint_hull_check", "1", true, true, "Check player hull before placing respawn points")
-    CreateClientConVar("spawnpoint_always_show", "0", true, true, "Always show known respawn point markers")
+    CreateClientConVar("spawnpoint_always_show", "0", true, true, "Always show synced respawn point markers")
 end
 
 local function getHitNormal(trace)
@@ -105,24 +108,42 @@ function TOOL:Reload(trace)
 end
 
 function TOOL.BuildCPanel(panel)
-    panel:Help("Left-click adds a respawn point. Right-click removes the aimed respawn point. Reload clears your respawn points on this map. Respawns choose randomly from your placed points.")
-    panel:Help("Blue preview: valid placement. Red preview: blocked by the player hull check.")
+    local function addForm(name)
+        local form = vgui.Create("DForm", panel)
+        form:SetName(name)
+        panel:AddItem(form)
+        return form
+    end
 
-    local persistToggle = panel:CheckBox("Persist across sessions", "spawnpoint_persist")
+    local playerForm = addForm("Player Settings")
+    playerForm:Help("Control how your personal respawn points behave.")
+
+    local enabledToggle = playerForm:CheckBox("Use my respawn points", "spawnpoint_enabled")
+    local persistToggle = playerForm:CheckBox("Persist across sessions", "spawnpoint_persist")
     persistToggle.OnChange = function(_, checked)
         sendPersistenceMode(checked)
     end
 
-    local hullToggle = panel:CheckBox("Check player hull before placement", "spawnpoint_hull_check")
-    local alwaysShowToggle = panel:CheckBox("Always show known markers", "spawnpoint_always_show")
+    local placementForm = addForm("Placement")
+    placementForm:Help("Left-click adds a point, right-click removes the aimed point, and reload clears this map.")
 
-    local resetClientBtn = panel:Button("Reset client settings")
+    local hullToggle = placementForm:CheckBox("Check player hull before placement", "spawnpoint_hull_check")
+    placementForm:Help("Blue preview: valid placement. Red preview: blocked.")
+
+    local markersForm = addForm("Marker Display")
+    markersForm:Help("Marker sharing is controlled by the server. This only changes when synced markers are drawn for you.")
+
+    local alwaysShowToggle = markersForm:CheckBox("Always show synced markers", "spawnpoint_always_show")
+
+    local resetClientBtn = playerForm:Button("Reset client settings")
     resetClientBtn:SetTooltip("Restores persistence, hull check, and marker visibility settings to defaults.")
     resetClientBtn.DoClick = function()
+        enabledToggle:SetValue(1)
         persistToggle:SetValue(0)
         hullToggle:SetValue(1)
         alwaysShowToggle:SetValue(0)
 
+        RunConsoleCommand("spawnpoint_enabled", "1")
         sendPersistenceMode(false)
         RunConsoleCommand("spawnpoint_hull_check", "1")
         RunConsoleCommand("spawnpoint_always_show", "0")
@@ -130,52 +151,77 @@ function TOOL.BuildCPanel(panel)
 
     local ply = LocalPlayer()
     if IsValid(ply) and ply:IsAdmin() then
-        panel:Help("Server Settings")
+        local adminForm = addForm("Admin: Respawns")
+        adminForm:Help("Server-wide controls for custom respawns.")
 
-        local adminToggle = panel:CheckBox("Show all players' markers", "spt_show_all_markers")
-        adminToggle.OnChange = function(_, checked)
-            sendAdminSetting("show_all_markers", checked and "1" or "0")
+        local enabledServerToggle = adminForm:CheckBox("Enable custom respawns", "spt_enabled")
+        enabledServerToggle.OnChange = function(_, checked)
+            sendAdminSetting("enabled", checked and "1" or "0")
         end
 
-        local maxSlider = panel:NumSlider("Max respawn points", "spt_max_spawns", 1, 128, 0)
+        local maxSlider = adminForm:NumSlider("Max respawn points", "spt_max_spawns", 1, 128, 0)
         maxSlider.OnValueChanged = function(_, value)
             queueAdminSetting("max_spawns", math.Round(value))
         end
 
-        local radiusSlider = panel:NumSlider("Remove radius", "spt_delete_radius", 16, 256, 0)
-        radiusSlider.OnValueChanged = function(_, value)
-            queueAdminSetting("delete_radius", math.Round(value))
-        end
-
-        local offsetSlider = panel:NumSlider("Spawn surface offset", "spt_spawn_offset", 0, 32, 0)
+        local offsetSlider = adminForm:NumSlider("Spawn surface offset", "spt_spawn_offset", 0, 32, 0)
         offsetSlider.OnValueChanged = function(_, value)
             queueAdminSetting("spawn_offset", math.Round(value))
         end
 
-        local dangerToggle = panel:CheckBox("Avoid dangerous respawn points", "spt_danger_check")
+        local markerAdminForm = addForm("Admin: Markers")
+        markerAdminForm:Help("Choose who can see synced markers when using the tool or Always Show is enabled.")
+
+        local markerCombo = markerAdminForm:ComboBox("Shared marker visibility", "spt_marker_visibility")
+        markerCombo:AddChoice("Own markers only", 0)
+        markerCombo:AddChoice("Admins see all", 1)
+        markerCombo:AddChoice("Everyone sees all", 2)
+        markerCombo.OnSelect = function(_, _, _, data)
+            sendAdminSetting("marker_visibility", data or 0)
+        end
+
+        local radiusSlider = markerAdminForm:NumSlider("Remove radius", "spt_delete_radius", 16, 256, 0)
+        radiusSlider.OnValueChanged = function(_, value)
+            queueAdminSetting("delete_radius", math.Round(value))
+        end
+
+        local safetyForm = addForm("Admin: Safety Checks")
+        safetyForm:Help("Danger checks prefer safer points. Respawn hull checks are stricter and off by default.")
+
+        local dangerToggle = safetyForm:CheckBox("Avoid dangerous respawn points", "spt_danger_check")
         dangerToggle.OnChange = function(_, checked)
             sendAdminSetting("danger_check", checked and "1" or "0")
         end
 
-        local dangerSlider = panel:NumSlider("Danger check radius", "spt_danger_radius", 128, 2048, 0)
+        local dangerSlider = safetyForm:NumSlider("Danger check radius", "spt_danger_radius", 128, 2048, 0)
         dangerSlider.OnValueChanged = function(_, value)
             queueAdminSetting("danger_radius", math.Round(value))
         end
 
-        local resetBtn = panel:Button("Reset server settings")
+        local respawnHullToggle = safetyForm:CheckBox("Check hull before respawning", "spt_respawn_hull_check")
+        respawnHullToggle.OnChange = function(_, checked)
+            sendAdminSetting("respawn_hull_check", checked and "1" or "0")
+        end
+
+        local resetBtn = adminForm:Button("Reset server settings")
         resetBtn:SetTooltip("Restores marker visibility, max respawn points, remove radius, spawn offset, and danger check settings to defaults.")
         resetBtn.DoClick = function()
-            adminToggle:SetValue(0)
+            enabledServerToggle:SetValue(1)
+            markerCombo:SetValue("Own markers only")
             setSliderValue(maxSlider, 32)
             setSliderValue(radiusSlider, 64)
             setSliderValue(offsetSlider, 8)
             dangerToggle:SetValue(1)
-            setSliderValue(dangerSlider, 512)
+            setSliderValue(dangerSlider, 256)
+            respawnHullToggle:SetValue(0)
             sendAdminSetting("reset_defaults", "1")
         end
     end
 
-    local btn = panel:Button("Delete all saved respawn points...")
+    local maintenanceForm = addForm("Maintenance")
+    maintenanceForm:Help("Manage your saved respawn points.")
+
+    local btn = maintenanceForm:Button("Delete all saved respawn points...")
     btn:SetTooltip("Removes your saved respawn points on all maps. This cannot be undone.")
     btn.DoClick = function()
         Derma_Query(
@@ -190,6 +236,7 @@ function TOOL.BuildCPanel(panel)
         )
     end
 
-    panel:Help("Spawn Point Tool v.1.0.1 by cat sniffer")
-    panel:Help("If you like this tool, please consider rating it!")
+    local aboutForm = addForm("About")
+    aboutForm:Help("Spawn Point Tool " .. SpawnPointTool.VERSION_LABEL .. " by " .. SpawnPointTool.AUTHOR)
+    aboutForm:Help("If you like this tool, please consider rating it!")
 end

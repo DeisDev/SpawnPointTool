@@ -1,5 +1,7 @@
 if CLIENT then return end
 
+include("autorun/spt_core.lua")
+
 SpawnPointTool = SpawnPointTool or {}
 
 util.AddNetworkString("spt_sync_markers")
@@ -15,13 +17,47 @@ local playerSpawns = {}
 local markersByKey = {}
 local playerNamesByKey = {}
 local clearAllCooldowns = {}
+local lastRagModDetected
 
+local addonEnabled = CreateConVar("spt_enabled", "1", { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "Enable custom respawns from Spawn Point Tool.")
 local showAllMarkers = CreateConVar("spt_show_all_markers", "0", { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "Show every player's respawn point markers while using the tool.")
+local markerVisibility = CreateConVar("spt_marker_visibility", "0", { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "Marker visibility: 0 = own only, 1 = admins see all, 2 = everyone sees all.", 0, 2)
 local maxSpawns = CreateConVar("spt_max_spawns", "32", { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "Maximum respawn points each player can place.", 1, 128)
 local deleteRadius = CreateConVar("spt_delete_radius", "64", { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "Aimed removal radius for respawn points.", 16, 256)
 local spawnOffset = CreateConVar("spt_spawn_offset", "8", { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "Distance to move players away from the saved surface normal.", 0, 32)
 local dangerCheck = CreateConVar("spt_danger_check", "1", { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "Prefer respawn points without nearby NPCs or NextBots.")
-local dangerRadius = CreateConVar("spt_danger_radius", "512", { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "Radius used for respawn point danger checks.", 128, 2048)
+local dangerRadius = CreateConVar("spt_danger_radius", "256", { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "Radius used for respawn point danger checks.", 128, 2048)
+local respawnHullCheck = CreateConVar("spt_respawn_hull_check", "0", { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "Check player hull again before using a respawn point.")
+
+local function log(message)
+    local developer = GetConVar("developer")
+    if not developer or developer:GetInt() < 1 then return end
+    print("[Spawn Point Tool] " .. message)
+end
+
+local function isRagModDetected()
+    if istable(ragmod) and isfunction(ragmod.IsRagdoll) and isfunction(ragmod.UnPossessRagdoll) then
+        return true
+    end
+
+    local hooks = hook.GetTable()
+    local spawnHooks = hooks and hooks.PlayerSpawn
+    return istable(spawnHooks) and (spawnHooks.ragmod_PlayerSpawn or spawnHooks.ragmod_PlayerSpawnLoadout) ~= nil
+end
+
+local function updateRagModDetectionLog()
+    local detected = isRagModDetected()
+    if lastRagModDetected == detected then return detected end
+
+    lastRagModDetected = detected
+    if detected then
+        log("RagMod detected. Compatibility guard enabled.")
+    else
+        log("RagMod not detected. Compatibility guard disabled.")
+    end
+
+    return detected
+end
 
 local function isFiniteNumber(n)
     return isnumber(n) and n == n and n ~= math.huge and n ~= -math.huge
@@ -58,6 +94,11 @@ end
 
 local function getDangerRadius()
     return math.Clamp(dangerRadius:GetFloat(), 128, 2048)
+end
+
+local function getMarkerVisibility()
+    if showAllMarkers:GetBool() then return 2 end
+    return math.Clamp(markerVisibility:GetInt(), 0, 2)
 end
 
 local function playerKey(ply)
@@ -265,7 +306,8 @@ end
 
 local function writeMarkersForPlayer(ply)
     local key = playerKey(ply)
-    local includeAll = showAllMarkers:GetBool()
+    local visibility = getMarkerVisibility()
+    local includeAll = visibility == 2 or (visibility == 1 and IsValid(ply) and ply:IsAdmin())
     local count = includeAll and getAllMarkerCount() or getMarkerCountForKey(key)
 
     net.Start("spt_sync_markers")
@@ -315,7 +357,7 @@ local function broadcastMarkers(toPly, changedKey)
         return
     end
 
-    if not showAllMarkers:GetBool() and changedKey then
+    if getMarkerVisibility() == 0 and changedKey then
         for _, ply in ipairs(player.GetHumans()) do
             if playerKey(ply) == changedKey and wantsMarkers(ply) then
                 writeMarkersForPlayer(ply)
@@ -334,7 +376,7 @@ local function broadcastMarkers(toPly, changedKey)
 end
 
 local function syncOwnerChange(ply, key)
-    if showAllMarkers:GetBool() then
+    if getMarkerVisibility() > 0 then
         broadcastMarkers(nil, key)
     else
         broadcastMarkers(ply)
@@ -369,6 +411,11 @@ local function isSpawnHullClear(ply, pos, normal)
     return not tr.StartSolid and not tr.AllSolid and tr.Fraction == 1
 end
 
+local function isRespawnPointClear(ply, spawn)
+    if not respawnHullCheck:GetBool() then return true end
+    return isSpawnHullClear(ply, spawn.pos, spawn.normal)
+end
+
 local function isDangerEntity(ent)
     if not IsValid(ent) then return false end
     if ent:IsNPC() then return true end
@@ -389,15 +436,24 @@ local function isSpawnDangerous(pos)
     return false
 end
 
-local function chooseRespawnPoint(spawns)
-    if #spawns <= 1 or not dangerCheck:GetBool() then
-        return copySpawn(spawns[math.random(#spawns)])
+local function chooseRespawnPoint(ply, spawns)
+    local usableSpawns = {}
+    for i = 1, #spawns do
+        if isRespawnPointClear(ply, spawns[i]) then
+            usableSpawns[#usableSpawns + 1] = spawns[i]
+        end
+    end
+
+    if #usableSpawns == 0 then return nil end
+
+    if #usableSpawns <= 1 or not dangerCheck:GetBool() then
+        return copySpawn(usableSpawns[math.random(#usableSpawns)])
     end
 
     local safeSpawns = {}
-    for i = 1, #spawns do
-        if not isSpawnDangerous(spawns[i].pos + spawns[i].normal * getSpawnOffset()) then
-            safeSpawns[#safeSpawns + 1] = spawns[i]
+    for i = 1, #usableSpawns do
+        if not isSpawnDangerous(usableSpawns[i].pos + usableSpawns[i].normal * getSpawnOffset()) then
+            safeSpawns[#safeSpawns + 1] = usableSpawns[i]
         end
     end
 
@@ -405,7 +461,23 @@ local function chooseRespawnPoint(spawns)
         return copySpawn(safeSpawns[math.random(#safeSpawns)])
     end
 
-    return copySpawn(spawns[math.random(#spawns)])
+    return copySpawn(usableSpawns[math.random(#usableSpawns)])
+end
+
+local function shouldIgnorePlayerSpawn(ply)
+    if not updateRagModDetectionLog() then return false end
+
+    if ply.Ragmod_RestoreInventory then
+        log("RagMod compatibility blocked custom respawn during get-up for " .. ply:Nick() .. ".")
+        return true
+    end
+
+    if ply.Ragmod_PropagateDeath then
+        log("RagMod compatibility skipped internal propagated-death spawn for " .. ply:Nick() .. ".")
+        return true
+    end
+
+    return false
 end
 
 local function persistIfNeeded(ply, key)
@@ -441,7 +513,7 @@ function SpawnPointTool.SetSpawn(ply, pos, normal, eyeAng)
     normal = sanitizeNormal(normal)
 
     if shouldValidateHull(ply) and not isSpawnHullClear(ply, pos, normal) then
-        return false, "Spawn point blocked. Disable the hull check to place it anyway.", "blocked"
+        return false, "Spawn point blocked.", "blocked"
     end
 
     local yaw = ply:EyeAngles().y
@@ -534,6 +606,73 @@ function SpawnPointTool.ClearAllSpawns(ply)
     return true, "All saved respawn points removed across all maps."
 end
 
+local function findPlayerByText(text)
+    if not text or text == "" then return nil end
+    local needle = string.lower(text)
+
+    for _, ply in ipairs(player.GetAll()) do
+        if string.lower(ply:Nick()):find(needle, 1, true) or ply:SteamID() == text or ply:SteamID64() == text then
+            return ply
+        end
+    end
+end
+
+local function canRunAdminCommand(ply)
+    return not IsValid(ply) or ply:IsAdmin()
+end
+
+local function adminPrint(ply, message)
+    if IsValid(ply) then
+        ply:ChatPrint(message)
+    else
+        print("[Spawn Point Tool] " .. message)
+    end
+end
+
+local function clearPlayerSpawnsByKey(key)
+    playerSpawns[key] = nil
+    playerNamesByKey[key] = nil
+    rebuildMarkersForKey(key)
+    deleteSpawnFromDisk(key)
+    broadcastMarkers(nil, key)
+end
+
+concommand.Add("spt_list_counts", function(ply)
+    if not canRunAdminCommand(ply) then return end
+
+    local rows = {}
+    for key, spawns in pairs(playerSpawns) do
+        rows[#rows + 1] = string.format("%s: %d", playerNamesByKey[key] or key, #(spawns or {}))
+    end
+
+    if #rows == 0 then
+        adminPrint(ply, "No loaded respawn points.")
+        return
+    end
+
+    adminPrint(ply, "Loaded respawn points: " .. table.concat(rows, ", "))
+end, nil, "List loaded Spawn Point Tool respawn point counts.")
+
+concommand.Add("spt_clear_player", function(ply, _, args)
+    if not canRunAdminCommand(ply) then return end
+
+    local targetText = table.concat(args or {}, " ")
+    local target = findPlayerByText(targetText)
+    if not IsValid(target) then
+        adminPrint(ply, "Player not found.")
+        return
+    end
+
+    local key = playerKey(target)
+    if not key then
+        adminPrint(ply, "Could not identify player.")
+        return
+    end
+
+    clearPlayerSpawnsByKey(key)
+    adminPrint(ply, "Cleared respawn points for " .. target:Nick() .. ".")
+end, nil, "Clear a player's Spawn Point Tool respawn points on this map.")
+
 net.Receive("spt_clear_all_request", function(len, ply)
     local key = playerKey(ply)
     if not key then return end
@@ -567,6 +706,12 @@ net.Receive("spt_admin_settings", function(len, ply)
     if setting == "show_all_markers" then
         RunConsoleCommand("spt_show_all_markers", value == "1" and "1" or "0")
         broadcastMarkers()
+    elseif setting == "enabled" then
+        RunConsoleCommand("spt_enabled", value == "1" and "1" or "0")
+    elseif setting == "marker_visibility" then
+        RunConsoleCommand("spt_marker_visibility", tostring(math.Clamp(math.floor(tonumber(value) or markerVisibility:GetInt()), 0, 2)))
+        RunConsoleCommand("spt_show_all_markers", "0")
+        broadcastMarkers()
     elseif setting == "max_spawns" then
         RunConsoleCommand("spt_max_spawns", tostring(math.Clamp(math.floor(tonumber(value) or maxSpawns:GetInt()), 1, 128)))
     elseif setting == "delete_radius" then
@@ -577,13 +722,18 @@ net.Receive("spt_admin_settings", function(len, ply)
         RunConsoleCommand("spt_danger_check", value == "1" and "1" or "0")
     elseif setting == "danger_radius" then
         RunConsoleCommand("spt_danger_radius", tostring(math.Clamp(tonumber(value) or dangerRadius:GetFloat(), 128, 2048)))
+    elseif setting == "respawn_hull_check" then
+        RunConsoleCommand("spt_respawn_hull_check", value == "1" and "1" or "0")
     elseif setting == "reset_defaults" then
+        RunConsoleCommand("spt_enabled", "1")
         RunConsoleCommand("spt_show_all_markers", "0")
+        RunConsoleCommand("spt_marker_visibility", "0")
         RunConsoleCommand("spt_max_spawns", "32")
         RunConsoleCommand("spt_delete_radius", "64")
         RunConsoleCommand("spt_spawn_offset", "8")
         RunConsoleCommand("spt_danger_check", "1")
-        RunConsoleCommand("spt_danger_radius", "512")
+        RunConsoleCommand("spt_danger_radius", "256")
+        RunConsoleCommand("spt_respawn_hull_check", "0")
         broadcastMarkers()
     end
 end)
@@ -593,6 +743,16 @@ cvars.AddChangeCallback("spt_show_all_markers", function()
         broadcastMarkers()
     end)
 end, "spt_marker_visibility_sync")
+
+cvars.AddChangeCallback("spt_marker_visibility", function()
+    timer.Simple(0, function()
+        broadcastMarkers()
+    end)
+end, "spt_marker_mode_sync")
+
+timer.Simple(0, function()
+    updateRagModDetectionLog()
+end)
 
 hook.Add("PlayerInitialSpawn", "spt_send_markers_on_join", function(ply)
     local key, canPersist = playerKey(ply)
@@ -620,6 +780,9 @@ end)
 
 hook.Add("PlayerSpawn", "spt_apply_custom_spawn", function(ply, transition)
     if transition then return end
+    if not addonEnabled:GetBool() then return end
+    if ply:GetInfoNum("spawnpoint_enabled", 1) ~= 1 then return end
+    if shouldIgnorePlayerSpawn(ply) then return end
 
     local key, canPersist = playerKey(ply)
     if not key then return end
@@ -634,7 +797,8 @@ hook.Add("PlayerSpawn", "spt_apply_custom_spawn", function(ply, transition)
 
     if not spawns or #spawns == 0 then return end
 
-    local data = chooseRespawnPoint(spawns)
+    local data = chooseRespawnPoint(ply, spawns)
+    if not data then return end
 
     timer.Simple(0, function()
         if not IsValid(ply) then return end
