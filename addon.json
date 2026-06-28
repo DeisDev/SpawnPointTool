@@ -3,9 +3,14 @@
   "type": "tool",
   "tags": ["build", "fun"],
   "ignore": [
+    ".github",
+    ".git*",
     "*.psd",
     "*.vcproj",
     "*.svn*",
-    "README.md"
+    "README.md",
+    "Steam",
+    "dev",
+    "reference"
   ]
 }

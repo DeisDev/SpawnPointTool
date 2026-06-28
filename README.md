@@ -17,6 +17,7 @@ Expected layout:
 - `lua/autorun/client/spt_client.lua`
 - `lua/autorun/spt_core.lua`
 - `lua/autorun/server/spt_server.lua`
+- `lua/spawnpointtool/*.lua`
 - `lua/weapons/gmod_tool/stools/spawnpoint.lua`
 - `materials/SpawnPointTool/spawndecal.vmt`
 - `materials/SpawnPointTool/spawndecal.vtf`
@@ -42,6 +43,7 @@ Expected layout:
 - `Always show synced markers` keeps synced markers visible without holding the tool.
 - Admins can configure custom respawns, marker visibility, max respawn points per player, remove radius, spawn surface offset, danger checking, and respawn-time hull checks.
 - Admins can reset server settings to their defaults from the tool menu.
+- `Delete this map's respawn points...` removes your saved points on the current map.
 - `Delete all saved respawn points...` removes your saved points across every map.
 
 ## ConVars
@@ -65,7 +67,7 @@ Expected layout:
 
 The placed marker uses an opaque alpha-tested material. The live placement preview is drawn separately as a translucent blue overlay.
 
-Marker sharing is off by default for privacy and server performance. Clients request marker data when the Spawn Point Tool is selected.
+Marker sharing is off by default for privacy and server performance. Clients request marker data when the Spawn Point Tool is selected or Always Show is enabled.
 
 The save format is `{ "spawns": [...] }`; older single-spawn save files are ignored.
 

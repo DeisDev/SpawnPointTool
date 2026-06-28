@@ -1,0 +1,90 @@
+name: Bug report
+description: Report a problem with Spawn Point Tool.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. Please include enough detail to reproduce the issue in Garry's Mod.
+  - type: input
+    id: addon-version
+    attributes:
+      label: Addon version
+      description: Version shown in the Spawn Point Tool About section.
+      placeholder: "Example: v1.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Where did this happen?
+      options:
+        - Singleplayer
+        - Listen server
+        - Dedicated server
+    validations:
+      required: true
+  - type: input
+    id: gamemode
+    attributes:
+      label: Gamemode
+      placeholder: "Example: Sandbox, DarkRP, TTT"
+    validations:
+      required: true
+  - type: input
+    id: map
+    attributes:
+      label: Map
+      placeholder: "Example: gm_construct"
+    validations:
+      required: false
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you expected to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the exact actions needed to reproduce the issue.
+      placeholder: |
+        1. Equip the Spawn Point Tool.
+        2. Place a respawn point on...
+        3. Respawn and observe...
+    validations:
+      required: true
+  - type: textarea
+    id: console-errors
+    attributes:
+      label: Console errors or logs
+      description: Paste any relevant client or server console output.
+      render: text
+    validations:
+      required: false
+  - type: textarea
+    id: addons
+    attributes:
+      label: Other relevant addons
+      description: List addons, gamemode modules, or respawn-related tools that may interact with this.
+    validations:
+      required: false
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or video
+      description: Drag files here or link to media if it helps explain the issue.
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I checked for existing issues before opening this one.
+          required: true
+        - label: I can reproduce this issue with the latest Workshop version or current repository version.
+          required: true

@@ -1,10 +1,10 @@
 if SERVER then
     AddCSLuaFile()
+    AddCSLuaFile("spawnpointtool/sh_config.lua")
+    AddCSLuaFile("spawnpointtool/sh_util.lua")
+    AddCSLuaFile("spawnpointtool/cl_markers.lua")
+    AddCSLuaFile("spawnpointtool/cl_menu.lua")
 end
 
-SpawnPointTool = SpawnPointTool or {}
-
--- Bump this value for each Workshop release.
-SpawnPointTool.VERSION = "1.0.3"
-SpawnPointTool.VERSION_LABEL = "v." .. SpawnPointTool.VERSION
-SpawnPointTool.AUTHOR = "cat sniffer"
+include("spawnpointtool/sh_config.lua")
+include("spawnpointtool/sh_util.lua")
