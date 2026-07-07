@@ -49,6 +49,11 @@ local function shouldValidateHull(ply)
     return ply:GetInfoNum("spawnpoint_hull_check", SPT.ClientDefaults.HullCheck) == 1
 end
 
+function SPT.IsGlobalModeEnabled(ply)
+    if not IsValid(ply) or not ply:IsPlayer() or not ply:IsAdmin() then return false end
+    return ply:GetInfoNum("spawnpoint_global_mode", SPT.ClientDefaults.GlobalMode) == 1
+end
+
 function SPT.IsSpawnHullClear(ply, pos, normal)
     local startPos = pos + normal * SPT.GetSpawnOffset()
     local tr = util.TraceHull({
@@ -141,6 +146,49 @@ local function persistIfNeeded(ply, key)
     end
 end
 
+local function makeSpawnData(ply, pos, normal, eyeAng)
+    pos = SPT.SanitizeVector(pos, nil)
+    if not pos then return nil, "Invalid spawn position." end
+
+    normal = SPT.SanitizeNormal(normal)
+
+    if shouldValidateHull(ply) and not SPT.IsSpawnHullClear(ply, pos, normal) then
+        return nil, "Spawn point blocked.", "blocked"
+    end
+
+    local yaw = ply:EyeAngles().y
+    if eyeAng and SPT.IsFiniteNumber(eyeAng.y) then
+        yaw = eyeAng.y
+    end
+
+    return {
+        pos = pos,
+        normal = normal,
+        yaw = SPT.SanitizeYaw(yaw)
+    }
+end
+
+local function findNearestSpawnIndex(spawns, pos)
+    local bestIndex
+    local bestDist = SPT.GetDeleteRadiusSqr()
+
+    if SPT.SanitizeVector(pos, nil) then
+        for i = 1, #spawns do
+            local dist = spawns[i].pos:DistToSqr(pos)
+            if dist <= bestDist then
+                bestDist = dist
+                bestIndex = i
+            end
+        end
+    end
+
+    if not bestIndex and #spawns == 1 then
+        bestIndex = 1
+    end
+
+    return bestIndex
+end
+
 function SPT.SetPersistenceMode(ply, enabled)
     local key, canPersist = SPT.PlayerKey(ply)
     if not key or not canPersist then return false end
@@ -159,19 +207,8 @@ function SPT.SetSpawn(ply, pos, normal, eyeAng)
     if not key then return false, "Invalid player." end
     SPT.PlayerNamesByKey[key] = ply:Nick()
 
-    pos = SPT.SanitizeVector(pos, nil)
-    if not pos then return false, "Invalid spawn position." end
-
-    normal = SPT.SanitizeNormal(normal)
-
-    if shouldValidateHull(ply) and not SPT.IsSpawnHullClear(ply, pos, normal) then
-        return false, "Spawn point blocked.", "blocked"
-    end
-
-    local yaw = ply:EyeAngles().y
-    if eyeAng and SPT.IsFiniteNumber(eyeAng.y) then
-        yaw = eyeAng.y
-    end
+    local spawn, message, reason = makeSpawnData(ply, pos, normal, eyeAng)
+    if not spawn then return false, message, reason end
 
     local spawns = SPT.PlayerSpawns[key] or {}
     local limit = SPT.GetMaxSpawns()
@@ -180,9 +217,9 @@ function SPT.SetSpawn(ply, pos, normal, eyeAng)
     end
 
     spawns[#spawns + 1] = {
-        pos = pos,
-        normal = normal,
-        yaw = SPT.SanitizeYaw(yaw)
+        pos = spawn.pos,
+        normal = spawn.normal,
+        yaw = spawn.yaw
     }
 
     SPT.PlayerSpawns[key] = spawns
@@ -200,23 +237,7 @@ function SPT.RemoveNearestSpawn(ply, pos)
     local spawns = SPT.PlayerSpawns[key]
     if not spawns or #spawns == 0 then return false, "No respawn points to remove." end
 
-    local bestIndex
-    local bestDist = SPT.GetDeleteRadiusSqr()
-
-    if SPT.SanitizeVector(pos, nil) then
-        for i = 1, #spawns do
-            local dist = spawns[i].pos:DistToSqr(pos)
-            if dist <= bestDist then
-                bestDist = dist
-                bestIndex = i
-            end
-        end
-    end
-
-    if not bestIndex and #spawns == 1 then
-        bestIndex = 1
-    end
-
+    local bestIndex = findNearestSpawnIndex(spawns, pos)
     if not bestIndex then
         return false, "Aim closer to one of your respawn points to remove it."
     end
@@ -256,4 +277,66 @@ function SPT.ClearAllSpawns(ply)
     SPT.DeleteAllSpawnsFromDisk(key)
 
     return true, "All saved respawn points removed across all maps."
+end
+
+local function canManageGlobalSpawns(ply)
+    return IsValid(ply) and ply:IsPlayer() and ply:IsAdmin()
+end
+
+function SPT.SetGlobalSpawn(ply, pos, normal, eyeAng)
+    if not canManageGlobalSpawns(ply) then
+        return false, "Only admins can manage global respawn points."
+    end
+
+    local spawn, message, reason = makeSpawnData(ply, pos, normal, eyeAng)
+    if not spawn then return false, message, reason end
+
+    local spawns = SPT.GlobalSpawns or {}
+    local limit = SPT.GetMaxSpawns()
+    if #spawns >= limit then
+        return false, string.format("Global respawn point limit reached (%d).", limit), "limit"
+    end
+
+    spawns[#spawns + 1] = spawn
+    SPT.GlobalSpawns = spawns
+    SPT.RebuildGlobalMarkers()
+    SPT.SaveGlobalSpawnsToDisk(spawns)
+    SPT.SyncGlobalChange()
+
+    return true, string.format("Global respawn point added (%d/%d).", #spawns, limit)
+end
+
+function SPT.RemoveNearestGlobalSpawn(ply, pos)
+    if not canManageGlobalSpawns(ply) then
+        return false, "Only admins can manage global respawn points."
+    end
+
+    local spawns = SPT.GlobalSpawns
+    if not spawns or #spawns == 0 then return false, "No global respawn points to remove." end
+
+    local bestIndex = findNearestSpawnIndex(spawns, pos)
+    if not bestIndex then
+        return false, "Aim closer to a global respawn point to remove it."
+    end
+
+    table.remove(spawns, bestIndex)
+    SPT.GlobalSpawns = spawns
+    SPT.RebuildGlobalMarkers()
+    SPT.SaveGlobalSpawnsToDisk(spawns)
+    SPT.SyncGlobalChange()
+
+    return true, string.format("Global respawn point removed (%d remaining).", #spawns)
+end
+
+function SPT.ClearGlobalSpawns(ply)
+    if not canManageGlobalSpawns(ply) then
+        return false, "Only admins can manage global respawn points."
+    end
+
+    SPT.GlobalSpawns = {}
+    SPT.RebuildGlobalMarkers()
+    SPT.DeleteGlobalSpawnsFromDisk()
+    SPT.SyncGlobalChange()
+
+    return true, "All global respawn points removed for this map."
 end

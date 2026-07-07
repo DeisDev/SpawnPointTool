@@ -16,6 +16,10 @@ concommand.Add("spt_list_counts", function(ply)
     if not SPT.CanRunAdminCommand(ply) then return end
 
     local rows = {}
+    if SPT.GlobalSpawns and #SPT.GlobalSpawns > 0 then
+        rows[#rows + 1] = string.format("Global: %d", #SPT.GlobalSpawns)
+    end
+
     for key, spawns in pairs(SPT.PlayerSpawns) do
         rows[#rows + 1] = string.format("%s: %d", SPT.PlayerNamesByKey[key] or key, #(spawns or {}))
     end

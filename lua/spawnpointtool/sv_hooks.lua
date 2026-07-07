@@ -20,6 +20,18 @@ timer.Simple(0, function()
     SPT.UpdateRagModDetectionLog()
 end)
 
+local function applyRespawnData(ply, data)
+    timer.Simple(0, function()
+        if not IsValid(ply) or not ply:Alive() then return end
+
+        ply:SetPos(data.pos + data.normal * SPT.GetSpawnOffset())
+
+        local ang = ply:EyeAngles()
+        ang.y = data.yaw
+        ply:SetEyeAngles(ang)
+    end)
+end
+
 hook.Add("PlayerInitialSpawn", "spt_load_saved_spawns", function(ply)
     local key, canPersist = SPT.PlayerKey(ply)
 
@@ -41,8 +53,18 @@ end)
 hook.Add("PlayerSpawn", "spt_apply_custom_spawn", function(ply, transition)
     if transition then return end
     if not SPT.ConVars.Enabled:GetBool() then return end
-    if ply:GetInfoNum("spawnpoint_enabled", SPT.ClientDefaults.Enabled) ~= 1 then return end
     if SPT.ShouldIgnorePlayerSpawn(ply) then return end
+
+    local globalSpawns = SPT.GlobalSpawns
+    if globalSpawns and #globalSpawns > 0 then
+        local globalData = SPT.ChooseRespawnPoint(ply, globalSpawns)
+        if globalData then
+            applyRespawnData(ply, globalData)
+            return
+        end
+    end
+
+    if ply:GetInfoNum("spawnpoint_enabled", SPT.ClientDefaults.Enabled) ~= 1 then return end
 
     local key, canPersist = SPT.PlayerKey(ply)
     if not key then return end
@@ -60,13 +82,5 @@ hook.Add("PlayerSpawn", "spt_apply_custom_spawn", function(ply, transition)
     local data = SPT.ChooseRespawnPoint(ply, spawns)
     if not data then return end
 
-    timer.Simple(0, function()
-        if not IsValid(ply) or not ply:Alive() then return end
-
-        ply:SetPos(data.pos + data.normal * SPT.GetSpawnOffset())
-
-        local ang = ply:EyeAngles()
-        ang.y = data.yaw
-        ply:SetEyeAngles(ang)
-    end)
+    applyRespawnData(ply, data)
 end)

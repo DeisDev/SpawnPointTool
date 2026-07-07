@@ -5,11 +5,11 @@ SpawnPointTool = SpawnPointTool or {}
 local SPT = SpawnPointTool
 
 SPT.PlayerSpawns = SPT.PlayerSpawns or {}
+SPT.GlobalSpawns = SPT.GlobalSpawns or {}
 SPT.MarkersByKey = SPT.MarkersByKey or {}
 SPT.PlayerNamesByKey = SPT.PlayerNamesByKey or {}
 
-function SPT.RebuildMarkersForKey(key)
-    local spawns = SPT.PlayerSpawns[key]
+local function rebuildMarkersForSpawns(key, spawns, global)
     if not spawns or #spawns == 0 then
         SPT.MarkersByKey[key] = nil
         return
@@ -21,11 +21,20 @@ function SPT.RebuildMarkersForKey(key)
             pos = spawns[i].pos,
             normal = spawns[i].normal,
             yaw = spawns[i].yaw,
-            index = i
+            index = i,
+            global = global == true
         }
     end
 
     SPT.MarkersByKey[key] = markers
+end
+
+function SPT.RebuildMarkersForKey(key)
+    rebuildMarkersForSpawns(key, SPT.PlayerSpawns[key], false)
+end
+
+function SPT.RebuildGlobalMarkers()
+    rebuildMarkersForSpawns(SPT.GlobalSpawnKey, SPT.GlobalSpawns, true)
 end
 
 function SPT.GetMarkerCountForKey(key)
@@ -51,9 +60,10 @@ local function writeMarker(marker, own, ownerName)
     net.WriteVector(marker.pos)
     net.WriteNormal(SPT.SanitizeNormal(marker.normal))
     net.WriteBool(own)
+    net.WriteBool(marker.global == true)
     net.WriteInt(math.Clamp(math.Round(SPT.SanitizeYaw(marker.yaw)), -180, 180), 10)
     net.WriteUInt(math.Clamp(marker.index or 1, 1, 65535), 16)
-    writeSafeString(ownerName or "Player", 64)
+    writeSafeString(marker.global and "Global" or ownerName or "Player", 64)
 end
 
 function SPT.WriteMarkersForPlayer(ply)
@@ -62,7 +72,12 @@ function SPT.WriteMarkersForPlayer(ply)
     local key = SPT.PlayerKey(ply)
     local visibility = SPT.GetMarkerVisibility()
     local includeAll = visibility == SPT.MarkerVisibility.Everyone or (visibility == SPT.MarkerVisibility.Admins and ply:IsAdmin())
+    local includeGlobal = includeAll or (ply:IsAdmin() and SPT.IsGlobalModeEnabled and SPT.IsGlobalModeEnabled(ply))
     local count = includeAll and SPT.GetAllMarkerCount() or SPT.GetMarkerCountForKey(key)
+
+    if includeGlobal and not includeAll then
+        count = count + SPT.GetMarkerCountForKey(SPT.GlobalSpawnKey)
+    end
 
     net.Start(SPT.Net.SyncMarkers)
     net.WriteUInt(math.min(count, 65535), 16)
@@ -87,6 +102,15 @@ function SPT.WriteMarkersForPlayer(ply)
             written = written + 1
             if written > 65535 then break end
             writeMarker(markers[i], true, SPT.PlayerNamesByKey[key] or ply:Nick())
+        end
+
+        if includeGlobal then
+            local globalMarkers = SPT.MarkersByKey[SPT.GlobalSpawnKey]
+            for i = 1, #(globalMarkers or {}) do
+                written = written + 1
+                if written > 65535 then break end
+                writeMarker(globalMarkers[i], false, "Global")
+            end
         end
     end
 
@@ -137,3 +161,9 @@ function SPT.SyncOwnerChange(ply, key)
         SPT.BroadcastMarkers(ply)
     end
 end
+
+function SPT.SyncGlobalChange()
+    SPT.BroadcastMarkers()
+end
+
+SPT.RebuildGlobalMarkers()

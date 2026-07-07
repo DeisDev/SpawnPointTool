@@ -9,7 +9,7 @@ SPT.ConVars = {
     Enabled = CreateConVar("spt_enabled", tostring(defaults.Enabled), { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "Enable custom respawns from Spawn Point Tool."),
     ShowAllMarkers = CreateConVar("spt_show_all_markers", tostring(defaults.ShowAllMarkers), { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "Legacy marker visibility override. Prefer spt_marker_visibility."),
     MarkerVisibility = CreateConVar("spt_marker_visibility", tostring(defaults.MarkerVisibility), { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "Marker visibility: 0 = own only, 1 = admins see all, 2 = everyone sees all.", 0, 2),
-    MaxSpawns = CreateConVar("spt_max_spawns", tostring(defaults.MaxSpawns), { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "Maximum respawn points each player can place.", 1, 128),
+    MaxSpawns = CreateConVar("spt_max_spawns", tostring(defaults.MaxSpawns), { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "Maximum respawn points per player or global set.", 1, 128),
     DeleteRadius = CreateConVar("spt_delete_radius", tostring(defaults.DeleteRadius), { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "Aimed removal radius for respawn points.", 16, 256),
     SpawnOffset = CreateConVar("spt_spawn_offset", tostring(defaults.SpawnOffset), { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "Distance to move players away from the saved surface normal.", 0, 32),
     DangerCheck = CreateConVar("spt_danger_check", tostring(defaults.DangerCheck), { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "Prefer respawn points without nearby NPCs or NextBots."),

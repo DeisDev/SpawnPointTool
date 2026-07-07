@@ -11,6 +11,9 @@ if not SPT.ClientConVarsCreated then
     CreateClientConVar("spawnpoint_persist", tostring(defaults.Persist), true, true, "Persist your respawn points across sessions")
     CreateClientConVar("spawnpoint_hull_check", tostring(defaults.HullCheck), true, true, "Check player hull before placing respawn points")
     CreateClientConVar("spawnpoint_always_show", tostring(defaults.AlwaysShow), true, true, "Always show synced respawn point markers")
+    CreateClientConVar("spawnpoint_global_mode", tostring(defaults.GlobalMode), false, true, "Use the tool on global respawn points")
+    CreateClientConVar("spawnpoint_global_sticky", tostring(defaults.GlobalSticky), true, false, "Keep global respawn point placement enabled")
+    CreateClientConVar("spawnpoint_global_hotkey", tostring(defaults.GlobalHotkey), true, false, "Hold key for global respawn point placement", 0, KEY_COUNT or 107)
     SPT.ClientConVarsCreated = true
 end
 
@@ -44,6 +47,30 @@ local function setSliderValue(slider, value)
     if slider and slider.SetValue then
         slider:SetValue(value)
     end
+end
+
+local function addBinder(form, label, convarName, defaultValue)
+    local row = vgui.Create("DPanel", form)
+    row:SetTall(52)
+    row:SetPaintBackground(false)
+    row:DockPadding(0, 2, 0, 0)
+
+    local text = vgui.Create("DLabel", row)
+    text:Dock(TOP)
+    text:DockMargin(0, 0, 0, 4)
+    text:SetText(label)
+    text:SizeToContentsY()
+
+    local binder = vgui.Create("DBinder", row)
+    binder:Dock(FILL)
+    local convar = GetConVar(convarName)
+    binder:SetValue(convar and convar:GetInt() or defaultValue)
+    binder.OnChange = function(_, keyCode)
+        RunConsoleCommand(convarName, tostring(math.Clamp(keyCode, 0, KEY_COUNT or 107)))
+    end
+
+    form:AddItem(row)
+    return binder
 end
 
 local function sendPersistenceMode(enabled)
@@ -106,6 +133,17 @@ local function addPlayerSettings(panel)
         sendPersistenceMode(defaults.Persist == 1)
         RunConsoleCommand("spawnpoint_always_show", tostring(defaults.AlwaysShow))
         RunConsoleCommand("spawnpoint_hull_check", tostring(defaults.HullCheck))
+        RunConsoleCommand("spawnpoint_global_mode", tostring(defaults.GlobalMode))
+        RunConsoleCommand("spawnpoint_global_sticky", tostring(defaults.GlobalSticky))
+        RunConsoleCommand("spawnpoint_global_hotkey", tostring(defaults.GlobalHotkey))
+
+        if SPT.GlobalStickyToggle then
+            SPT.GlobalStickyToggle:SetValue(defaults.GlobalSticky)
+        end
+
+        if SPT.GlobalHotkeyBinder then
+            SPT.GlobalHotkeyBinder:SetValue(defaults.GlobalHotkey)
+        end
     end
 end
 
@@ -118,6 +156,12 @@ local function addAdminSettings(panel)
     end
 
     local setting = SPT.AdminSetting
+    local placementForm = addForm(panel, "Admin Placement")
+    placementForm:Help("Hold the key or use sticky mode.")
+
+    SPT.GlobalStickyToggle = placementForm:CheckBox("Sticky global placement", "spawnpoint_global_sticky")
+    SPT.GlobalHotkeyBinder = addBinder(placementForm, "Global hold key", "spawnpoint_global_hotkey", defaults.GlobalHotkey)
+
     local serverForm = addForm(panel, "Server")
     serverForm:Help("Server-wide limits and behavior for custom respawns.")
 
@@ -127,7 +171,7 @@ local function addAdminSettings(panel)
         sendAdminSetting(setting.Enabled, checked and 1 or 0)
     end
 
-    local maxSlider = serverForm:NumSlider("Max respawn points per player", "spt_max_spawns", 1, 128, 0)
+    local maxSlider = serverForm:NumSlider("Max respawn points", "spt_max_spawns", 1, 128, 0)
     maxSlider.OnValueChanged = function(_, value)
         if suppressAdminCallbacks then return end
         queueAdminSetting("max_spawns", setting.MaxSpawns, math.Round(value))

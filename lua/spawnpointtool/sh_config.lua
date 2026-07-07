@@ -2,7 +2,7 @@ SpawnPointTool = SpawnPointTool or {}
 
 local SPT = SpawnPointTool
 
-SPT.VERSION = "1.1.0"
+SPT.VERSION = "1.2.0"
 SPT.VERSION_LABEL = "v" .. SPT.VERSION
 SPT.AUTHOR = "cat sniffer"
 SPT.AUTHOR_STEAM_ID64 = "76561199216202475"
@@ -16,6 +16,7 @@ SPT.Links = {
 
 SPT.HULL_MINS = Vector(-16, -16, 0)
 SPT.HULL_MAXS = Vector(16, 16, 72)
+SPT.GlobalSpawnKey = "global"
 
 SPT.Net = {
     SyncMarkers = "spt_sync_markers",
@@ -60,5 +61,8 @@ SPT.ClientDefaults = {
     Enabled = 1,
     Persist = 0,
     HullCheck = 1,
-    AlwaysShow = 0
+    AlwaysShow = 0,
+    GlobalMode = 0,
+    GlobalSticky = 0,
+    GlobalHotkey = 81
 }

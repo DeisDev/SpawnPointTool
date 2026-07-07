@@ -11,9 +11,19 @@ TOOL.Command = nil
 TOOL.ConfigName = ""
 
 if CLIENT then
+    TOOL.Information = {
+        { name = "left" },
+        { name = "right" },
+        { name = "reload" },
+        { name = "global", icon = "icon16/shield.png" }
+    }
+
     language.Add("tool.spawnpoint.name", "Spawn Point Tool")
-    language.Add("tool.spawnpoint.desc", "Create personal respawn points.")
-    language.Add("tool.spawnpoint.0", "Left-click: add respawn point. Right-click: remove aimed respawn point. Reload: clear your map respawn points.")
+    language.Add("tool.spawnpoint.desc", "Create respawn points.")
+    language.Add("tool.spawnpoint.left", "Add point")
+    language.Add("tool.spawnpoint.right", "Remove nearest point")
+    language.Add("tool.spawnpoint.reload", "Clear current map")
+    language.Add("tool.spawnpoint.global", "Hold hotkey: global points")
 end
 
 local function getHitNormal(trace)
@@ -37,7 +47,14 @@ function TOOL:LeftClick(trace)
     if not SpawnPointTool or not SpawnPointTool.SetSpawn then return false end
 
     local eyeAng = ply:EyeAngles()
-    local ok, message, reason = SpawnPointTool.SetSpawn(ply, trace.HitPos, getHitNormal(trace), Angle(0, eyeAng.y, 0))
+    local ok, message, reason
+    if SpawnPointTool.IsGlobalModeEnabled and SpawnPointTool.IsGlobalModeEnabled(ply) then
+        if not SpawnPointTool.SetGlobalSpawn then return false end
+        ok, message, reason = SpawnPointTool.SetGlobalSpawn(ply, trace.HitPos, getHitNormal(trace), Angle(0, eyeAng.y, 0))
+    else
+        ok, message, reason = SpawnPointTool.SetSpawn(ply, trace.HitPos, getHitNormal(trace), Angle(0, eyeAng.y, 0))
+    end
+
     if not ok and reason == "blocked" then
         ply:EmitSound("buttons/button10.wav", 65, 100, 1, CHAN_ITEM)
     end
@@ -56,7 +73,14 @@ function TOOL:RightClick(trace)
     if not SpawnPointTool or not SpawnPointTool.RemoveNearestSpawn then return false end
 
     local pos = trace and trace.Hit and trace.HitPos or nil
-    local ok, message = SpawnPointTool.RemoveNearestSpawn(ply, pos)
+    local ok, message
+    if SpawnPointTool.IsGlobalModeEnabled and SpawnPointTool.IsGlobalModeEnabled(ply) then
+        if not SpawnPointTool.RemoveNearestGlobalSpawn then return false end
+        ok, message = SpawnPointTool.RemoveNearestGlobalSpawn(ply, pos)
+    else
+        ok, message = SpawnPointTool.RemoveNearestSpawn(ply, pos)
+    end
+
     chatResult(ply, message)
 
     return ok == true
@@ -70,7 +94,14 @@ function TOOL:Reload()
 
     if not SpawnPointTool or not SpawnPointTool.ClearSpawn then return false end
 
-    local ok, message = SpawnPointTool.ClearSpawn(ply)
+    local ok, message
+    if SpawnPointTool.IsGlobalModeEnabled and SpawnPointTool.IsGlobalModeEnabled(ply) then
+        if not SpawnPointTool.ClearGlobalSpawns then return false end
+        ok, message = SpawnPointTool.ClearGlobalSpawns(ply)
+    else
+        ok, message = SpawnPointTool.ClearSpawn(ply)
+    end
+
     chatResult(ply, message)
 
     return ok == true

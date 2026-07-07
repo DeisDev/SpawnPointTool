@@ -5,13 +5,36 @@ SpawnPointTool = SpawnPointTool or {}
 local SPT = SpawnPointTool
 local DATA_DIR = "spawnpointtool"
 
-local function mapScopedPath(key)
+local function mapScopedDir()
     local map = game.GetMap() or "unknown"
-    return string.format("%s/%s/%s.json", DATA_DIR, map, key)
+    return string.format("%s/%s", DATA_DIR, map)
+end
+
+local function mapScopedPath(key)
+    return string.format("%s/%s.json", mapScopedDir(), key)
 end
 
 local function legacyPath(key)
     return string.format("%s/%s.json", DATA_DIR, key)
+end
+
+local function ensureMapScopedDir()
+    file.CreateDir(DATA_DIR)
+    file.CreateDir(mapScopedDir())
+end
+
+local function encodeSpawnArray(spawns)
+    local encoded = {}
+
+    for i = 1, #spawns do
+        encoded[i] = {
+            pos = SPT.VecToTbl(spawns[i].pos),
+            normal = SPT.VecToTbl(spawns[i].normal),
+            yaw = spawns[i].yaw
+        }
+    end
+
+    return encoded
 end
 
 function SPT.SanitizeSpawn(data)
@@ -72,20 +95,9 @@ function SPT.SaveSpawnsToDisk(key, spawns)
         return
     end
 
-    local map = game.GetMap() or "unknown"
-    file.CreateDir(DATA_DIR)
-    file.CreateDir(string.format("%s/%s", DATA_DIR, map))
+    ensureMapScopedDir()
 
-    local encoded = {}
-    for i = 1, #spawns do
-        encoded[i] = {
-            pos = SPT.VecToTbl(spawns[i].pos),
-            normal = SPT.VecToTbl(spawns[i].normal),
-            yaw = spawns[i].yaw
-        }
-    end
-
-    file.Write(mapScopedPath(key), util.TableToJSON({ spawns = encoded }, false))
+    file.Write(mapScopedPath(key), util.TableToJSON({ spawns = encodeSpawnArray(spawns) }, false))
 
     local oldPath = legacyPath(key)
     if file.Exists(oldPath, "DATA") then
@@ -124,3 +136,35 @@ function SPT.DeleteAllSpawnsFromDisk(key)
         file.Delete(oldPath)
     end
 end
+
+function SPT.DeleteGlobalSpawnsFromDisk()
+    local path = mapScopedPath(SPT.GlobalSpawnKey)
+    if file.Exists(path, "DATA") then
+        file.Delete(path)
+    end
+end
+
+function SPT.SaveGlobalSpawnsToDisk(spawns)
+    if not spawns then return end
+
+    if #spawns == 0 then
+        SPT.DeleteGlobalSpawnsFromDisk()
+        return
+    end
+
+    ensureMapScopedDir()
+    file.Write(mapScopedPath(SPT.GlobalSpawnKey), util.TableToJSON({ spawns = encodeSpawnArray(spawns) }, false))
+end
+
+function SPT.LoadGlobalSpawnsFromDisk()
+    local path = mapScopedPath(SPT.GlobalSpawnKey)
+    if not file.Exists(path, "DATA") then return {} end
+
+    local raw = file.Read(path, "DATA")
+    if not raw or raw == "" then return {} end
+
+    local decoded = util.JSONToTable(raw)
+    return sanitizeSpawnList(decoded)
+end
+
+SPT.GlobalSpawns = SPT.LoadGlobalSpawnsFromDisk()
