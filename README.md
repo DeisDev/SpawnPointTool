@@ -26,7 +26,7 @@ Expected layout:
 
 - Left-click a non-sky surface to add a respawn point.
 - Right-click near one of your spawn markers to remove it.
-- Reload clears your respawn points on the current map.
+- Reload clears your respawn points for the current gamemode and map.
 - Respawn points preserve the direction you were facing when placed.
 - The blue preview shows where the next marker will be placed.
 - Admin global placement uses a gold preview and gold markers.
@@ -39,7 +39,7 @@ Expected layout:
 
 ## Tool Options
 
-- `Persist across sessions` saves your current map respawn points immediately and keeps future changes saved under `spawnpointtool/<map>/<steamid>.json`.
+- `Persist across sessions` saves your respawn points for the current gamemode and map immediately and keeps future changes under `spawnpointtool/<gamemode>/<map>/<steamid>.json`.
 - `Check player hull before placement` rejects cramped respawn points.
 - `Use my respawn points` lets players temporarily return to normal map spawns without deleting their points.
 - `Always show synced markers` keeps synced markers visible without holding the tool.
@@ -47,8 +47,8 @@ Expected layout:
 - `Global hold key` changes the admin global placement hotkey.
 - Admins can configure custom respawns, marker visibility, max respawn points, remove radius, spawn surface offset, danger checking, and respawn-time hull checks.
 - Admins can reset server settings to their defaults from the tool menu.
-- `Delete this map's respawn points...` removes your saved points on the current map.
-- `Delete all saved respawn points...` removes your saved points across every map.
+- `Delete current respawn points...` removes your saved points for the current gamemode and map.
+- `Delete all saved respawn points...` removes your saved points across every gamemode and map.
 
 ## ConVars
 
@@ -70,13 +70,15 @@ Expected layout:
 ## Admin Commands
 
 - `spt_list_counts`: list loaded global and player respawn point counts.
-- `spt_clear_player <name|steamid>`: clear a player's current-map respawn points.
+- `spt_clear_player <name|steamid>`: clear a player's respawn points for the current gamemode and map.
 
 The placed marker uses an opaque alpha-tested material. The live placement preview is drawn separately as a translucent overlay.
 
 Marker sharing is off by default for privacy and server performance. Clients request marker data when the Spawn Point Tool is selected or Always Show is enabled.
 
-Personal points save under `spawnpointtool/<map>/<steamid>.json`. Global points save under `spawnpointtool/<map>/global.json`. The save format is `{ "spawns": [...] }`; older single-spawn save files are ignored.
+Personal points save under `spawnpointtool/<gamemode>/<map>/<steamid>.json`. Global points save under `spawnpointtool/<gamemode>/<map>/global.json`. The save format is `{ "spawns": [...] }`; older single-spawn save files are ignored.
+
+On first load after upgrading, existing map-scoped saves move under `spawnpointtool/sandbox/<map>/`.
 
 ## Links
 

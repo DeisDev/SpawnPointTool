@@ -50,4 +50,4 @@ concommand.Add("spt_clear_player", function(ply, _, args)
 
     clearPlayerSpawnsByKey(key)
     SPT.AdminPrint(ply, "Cleared respawn points for " .. target:Nick() .. ".")
-end, nil, "Clear a player's Spawn Point Tool respawn points on this map.")
+end, nil, "Clear a player's Spawn Point Tool respawn points for this gamemode and map.")

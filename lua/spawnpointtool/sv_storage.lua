@@ -4,23 +4,88 @@ SpawnPointTool = SpawnPointTool or {}
 
 local SPT = SpawnPointTool
 local DATA_DIR = "spawnpointtool"
+local SANDBOX_DIR = DATA_DIR .. "/sandbox"
+local GAMEMODE_MIGRATION_MARKER = DATA_DIR .. "/gamemode_scope_migrated.txt"
 
-local function mapScopedDir()
-    local map = game.GetMap() or "unknown"
-    return string.format("%s/%s", DATA_DIR, map)
+local function activeGamemode()
+    local mode = engine.ActiveGamemode() or "unknown"
+    mode = mode:gsub("[^%w_%-]", "_")
+    mode = string.lower(mode)
+    if mode == "" then return "unknown" end
+    return mode
 end
 
-local function mapScopedPath(key)
-    return string.format("%s/%s.json", mapScopedDir(), key)
+local function currentMap()
+    local map = game.GetMap() or "unknown"
+    if map == "" then return "unknown" end
+    return string.lower(map)
+end
+
+local function gamemodeScopedDir()
+    return string.format("%s/%s", DATA_DIR, activeGamemode())
+end
+
+local function scopedDir()
+    return string.format("%s/%s", gamemodeScopedDir(), currentMap())
+end
+
+local function scopedPath(key)
+    return string.format("%s/%s.json", scopedDir(), key)
 end
 
 local function legacyPath(key)
     return string.format("%s/%s.json", DATA_DIR, key)
 end
 
-local function ensureMapScopedDir()
+local function ensureScopedDir()
     file.CreateDir(DATA_DIR)
-    file.CreateDir(mapScopedDir())
+    file.CreateDir(gamemodeScopedDir())
+    file.CreateDir(scopedDir())
+end
+
+local function deleteIfExists(path)
+    if file.Exists(path, "DATA") then
+        file.Delete(path)
+    end
+end
+
+local function migrateMapScopedStorageToSandbox()
+    if file.Exists(GAMEMODE_MIGRATION_MARKER, "DATA") then return end
+
+    file.CreateDir(DATA_DIR)
+
+    local migrationComplete = true
+    local _, folders = file.Find(DATA_DIR .. "/*", "DATA")
+
+    for _, folder in ipairs(folders or {}) do
+        local sourceDir = string.format("%s/%s", DATA_DIR, folder)
+        local files = file.Find(sourceDir .. "/*.json", "DATA")
+
+        if files and #files > 0 then
+            local targetDir = string.format("%s/%s", SANDBOX_DIR, folder)
+            file.CreateDir(targetDir)
+
+            for _, name in ipairs(files) do
+                local sourcePath = string.format("%s/%s", sourceDir, name)
+                local targetPath = string.format("%s/%s", targetDir, name)
+
+                if file.Exists(targetPath, "DATA") then
+                    -- New Sandbox data wins; keep the legacy file as an untouched backup.
+                    print(string.format(
+                        "[Spawn Point Tool] Kept legacy save %s because Sandbox data already exists.",
+                        sourcePath
+                    ))
+                elseif not file.Rename(sourcePath, targetPath) then
+                    migrationComplete = false
+                    print("[Spawn Point Tool] Could not migrate legacy save " .. sourcePath .. ".")
+                end
+            end
+        end
+    end
+
+    if migrationComplete and not file.Write(GAMEMODE_MIGRATION_MARKER, "1") then
+        print("[Spawn Point Tool] Could not record the storage migration.")
+    end
 end
 
 local function encodeSpawnArray(spawns)
@@ -76,15 +141,8 @@ end
 function SPT.DeleteSpawnFromDisk(key)
     if not key then return end
 
-    local path = mapScopedPath(key)
-    if file.Exists(path, "DATA") then
-        file.Delete(path)
-    end
-
-    local oldPath = legacyPath(key)
-    if file.Exists(oldPath, "DATA") then
-        file.Delete(oldPath)
-    end
+    deleteIfExists(scopedPath(key))
+    deleteIfExists(legacyPath(key))
 end
 
 function SPT.SaveSpawnsToDisk(key, spawns)
@@ -95,20 +153,16 @@ function SPT.SaveSpawnsToDisk(key, spawns)
         return
     end
 
-    ensureMapScopedDir()
+    ensureScopedDir()
 
-    file.Write(mapScopedPath(key), util.TableToJSON({ spawns = encodeSpawnArray(spawns) }, false))
-
-    local oldPath = legacyPath(key)
-    if file.Exists(oldPath, "DATA") then
-        file.Delete(oldPath)
-    end
+    file.Write(scopedPath(key), util.TableToJSON({ spawns = encodeSpawnArray(spawns) }, false))
+    deleteIfExists(legacyPath(key))
 end
 
 function SPT.LoadSpawnsFromDisk(key)
     if not key then return {} end
 
-    local path = mapScopedPath(key)
+    local path = scopedPath(key)
     if not file.Exists(path, "DATA") then return {} end
 
     local raw = file.Read(path, "DATA")
@@ -123,25 +177,21 @@ function SPT.DeleteAllSpawnsFromDisk(key)
 
     file.CreateDir(DATA_DIR)
 
-    local _, folders = file.Find(DATA_DIR .. "/*", "DATA")
-    for _, folder in ipairs(folders or {}) do
-        local path = string.format("%s/%s/%s.json", DATA_DIR, folder, key)
-        if file.Exists(path, "DATA") then
-            file.Delete(path)
+    local _, firstLevelFolders = file.Find(DATA_DIR .. "/*", "DATA")
+    for _, folder in ipairs(firstLevelFolders or {}) do
+        deleteIfExists(string.format("%s/%s/%s.json", DATA_DIR, folder, key))
+
+        local _, mapFolders = file.Find(string.format("%s/%s/*", DATA_DIR, folder), "DATA")
+        for _, mapFolder in ipairs(mapFolders or {}) do
+            deleteIfExists(string.format("%s/%s/%s/%s.json", DATA_DIR, folder, mapFolder, key))
         end
     end
 
-    local oldPath = legacyPath(key)
-    if file.Exists(oldPath, "DATA") then
-        file.Delete(oldPath)
-    end
+    deleteIfExists(legacyPath(key))
 end
 
 function SPT.DeleteGlobalSpawnsFromDisk()
-    local path = mapScopedPath(SPT.GlobalSpawnKey)
-    if file.Exists(path, "DATA") then
-        file.Delete(path)
-    end
+    deleteIfExists(scopedPath(SPT.GlobalSpawnKey))
 end
 
 function SPT.SaveGlobalSpawnsToDisk(spawns)
@@ -152,12 +202,12 @@ function SPT.SaveGlobalSpawnsToDisk(spawns)
         return
     end
 
-    ensureMapScopedDir()
-    file.Write(mapScopedPath(SPT.GlobalSpawnKey), util.TableToJSON({ spawns = encodeSpawnArray(spawns) }, false))
+    ensureScopedDir()
+    file.Write(scopedPath(SPT.GlobalSpawnKey), util.TableToJSON({ spawns = encodeSpawnArray(spawns) }, false))
 end
 
 function SPT.LoadGlobalSpawnsFromDisk()
-    local path = mapScopedPath(SPT.GlobalSpawnKey)
+    local path = scopedPath(SPT.GlobalSpawnKey)
     if not file.Exists(path, "DATA") then return {} end
 
     local raw = file.Read(path, "DATA")
@@ -167,4 +217,5 @@ function SPT.LoadGlobalSpawnsFromDisk()
     return sanitizeSpawnList(decoded)
 end
 
+migrateMapScopedStorageToSandbox()
 SPT.GlobalSpawns = SPT.LoadGlobalSpawnsFromDisk()

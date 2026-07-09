@@ -115,9 +115,10 @@ local function addPlayerSettings(panel)
         sendPersistenceMode(checked)
     end
     local alwaysShowToggle = playerForm:CheckBox("Always show synced markers", "spawnpoint_always_show")
+    playerForm:Help("Saved points are separate for each gamemode and map.")
 
     local placementForm = addForm(panel, "Placement")
-    placementForm:Help("Left-click adds a point, right-click removes the aimed point, and reload clears this map.")
+    placementForm:Help("Left-click adds a point, right-click removes the aimed point, and reload clears points for this gamemode and map.")
     local hullToggle = placementForm:CheckBox("Check player hull before placement", "spawnpoint_hull_check")
     placementForm:Help("The placement preview turns red when this check thinks the spot is blocked.")
 
@@ -256,17 +257,17 @@ local function addMaintenance(panel)
 
     addConfirmButton(
         maintenanceForm,
-        "Delete this map's respawn points...",
-        "Removes your saved and loaded respawn points on the current map.",
-        "Delete all of your respawn points for this map?",
+        "Delete current respawn points...",
+        "Removes your saved and loaded respawn points for the current gamemode and map.",
+        "Delete all of your respawn points for this gamemode and map?",
         SPT.Net.ClearCurrentRequest
     )
 
     addConfirmButton(
         maintenanceForm,
         "Delete all saved respawn points...",
-        "Removes your saved respawn points on all maps.",
-        "Delete all of your saved respawn points on every map?",
+        "Removes your saved respawn points across every gamemode and map.",
+        "Delete all of your saved respawn points across every gamemode and map?",
         SPT.Net.ClearAllRequest
     )
 end

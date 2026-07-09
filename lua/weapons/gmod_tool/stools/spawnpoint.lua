@@ -22,7 +22,7 @@ if CLIENT then
     language.Add("tool.spawnpoint.desc", "Create respawn points.")
     language.Add("tool.spawnpoint.left", "Add point")
     language.Add("tool.spawnpoint.right", "Remove nearest point")
-    language.Add("tool.spawnpoint.reload", "Clear current map")
+    language.Add("tool.spawnpoint.reload", "Clear current points")
     language.Add("tool.spawnpoint.global", "Hold hotkey: global points")
 end
 

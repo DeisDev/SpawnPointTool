@@ -266,7 +266,7 @@ function SPT.ClearSpawn(ply)
     SPT.DeleteSpawnFromDisk(key)
     SPT.SyncOwnerChange(ply, key)
 
-    return true, "All respawn points removed for this map."
+    return true, "All respawn points removed for this gamemode and map."
 end
 
 function SPT.ClearAllSpawns(ply)
@@ -276,7 +276,7 @@ function SPT.ClearAllSpawns(ply)
     SPT.ClearSpawn(ply)
     SPT.DeleteAllSpawnsFromDisk(key)
 
-    return true, "All saved respawn points removed across all maps."
+    return true, "All saved respawn points removed across every gamemode and map."
 end
 
 local function canManageGlobalSpawns(ply)
@@ -338,5 +338,5 @@ function SPT.ClearGlobalSpawns(ply)
     SPT.DeleteGlobalSpawnsFromDisk()
     SPT.SyncGlobalChange()
 
-    return true, "All global respawn points removed for this map."
+    return true, "All global respawn points removed for this gamemode and map."
 end

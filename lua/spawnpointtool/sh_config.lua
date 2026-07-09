@@ -2,7 +2,7 @@ SpawnPointTool = SpawnPointTool or {}
 
 local SPT = SpawnPointTool
 
-SPT.VERSION = "1.2.0"
+SPT.VERSION = "1.2.1"
 SPT.VERSION_LABEL = "v" .. SPT.VERSION
 SPT.AUTHOR = "cat sniffer"
 SPT.AUTHOR_STEAM_ID64 = "76561199216202475"
